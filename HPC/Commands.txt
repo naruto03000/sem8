@@ -1,0 +1,30 @@
+To run C++ program in terminal:
+-------------------------------
+cd Desktop/
+touch filename.cpp
+g++ -o filename filename.cpp -fopenmp
+./filename
+
+
+
+To run a c openmp program in terminal:
+--------------------------------------
+cd desktop/
+touch filename.c
+gcc -fopenmp filename.c -o filename
+./filename
+
+
+
+To install openmp in terminal:
+------------------------------
+sudo apt update
+sudo apt install libomp-dev
+sudo yum install libgomp
+
+
+
+To check whether OpenMP is installed or not:
+--------------------------------------------
+sudo apt install libomp-dev
+
