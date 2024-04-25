@@ -1,0 +1,348 @@
+HPC Lab Assignment No. 01(a)
+—----------------------------------------------------------------------------------------------------------------------------
+Code:
+
+#include <iostream>
+#include <queue>
+#include <omp.h> // Include OpenMP header
+using namespace std;
+
+class node {
+public:
+    node *left, *right;
+    int data;
+};
+
+node *insert(node *root, int data) {
+    if (!root) {
+        root = new node;
+        root->left = NULL;
+        root->right = NULL;
+        root->data = data;
+        return root;
+    }
+
+    queue<node *> q;
+    q.push(root);
+    #pragma omp parallel
+    {
+        while (!q.empty()) {
+            #pragma omp single nowait
+            {
+                node *temp = q.front();
+                q.pop();
+                if (temp->left == NULL) {
+                    #pragma omp critical
+                    {
+                        temp->left = new node;
+                        temp->left->left = NULL;
+                        temp->left->right = NULL;
+                        temp->left->data = data;
+                    }
+                    return root; // Insertion done, return the root of the tree
+                } else {
+                    q.push(temp->left); // Push left child to the queue
+                }
+                if (temp->right == NULL) {
+                    #pragma omp critical
+                    {
+                        temp->right = new node;
+                        temp->right->left = NULL;
+                        temp->right->right = NULL;
+                        temp->right->data = data;
+                    }
+                    return root; // Insertion done, return the root of the tree
+                } else {
+                    q.push(temp->right); // Push right child to the queue
+                }
+            }
+        }
+    }
+    return root; // Return root if no insertion happened
+}
+
+void bfs(node *head) {
+    if (!head)
+        return;
+    queue<node *> q;
+    q.push(head);
+    while (!q.empty()) {
+        node *currNode = q.front();
+        q.pop();
+        cout << "\t" << currNode->data;
+        if (currNode->left)
+            q.push(currNode->left);
+        if (currNode->right)
+            q.push(currNode->right);
+    }
+}
+
+int main() {
+    node *root = NULL;
+    int data;
+    char ans;
+    do {
+        cout << "\nEnter the data => ";
+        cin >> data;
+        root = insert(root, data);
+        cout << "Do you want to insert one or more nodes? (y/n) ";
+        cin >> ans;
+    } while (ans == 'y' || ans == 'Y');
+
+    cout << "BFS Traversal:" << endl;
+    bfs(root);
+    return 0;
+}
+
+
+HPC Lab Assignment No. 01(b)
+—---------------------------------------------------------------------------------------------------------------------------
+Code:
+
+#include <iostream>
+#include <vector>
+#include <stack>
+#include <omp.h> // Include OpenMP header
+using namespace std;
+
+const int MAX = 100000;
+vector<int> graph[MAX];
+bool visited[MAX];
+
+void dfs(int node) {
+    stack<int> s;
+    s.push(node);
+    while (!s.empty()) {
+        int curr_node = s.top();
+        s.pop();
+        if (!visited[curr_node]) {
+            visited[curr_node] = true;
+            #pragma omp parallel for // Parallelize this loop
+            for (int i = 0; i < graph[curr_node].size(); i++) {
+                int adj_node = graph[curr_node][i];
+                if (!visited[adj_node]) {
+                    s.push(adj_node);
+                }
+            }
+        }
+    }
+}
+
+int main() {
+    int n, m, start_node;
+    cin >> n >> m >> start_node;
+
+    for (int i = 0; i < m; i++) {
+        int u, v;
+        cin >> u >> v;
+        graph[u].push_back(v);
+        graph[v].push_back(u);
+    }
+
+    for (int i = 1; i <= n; i++) { // Start DFS from every node
+        if (!visited[i]) {
+            dfs(i);
+        }
+    }
+
+    #pragma omp parallel for // Parallelize this loop
+    for (int i = 1; i <= n; i++) {
+        if (visited[i]) {
+            #pragma omp critical
+            cout << i << " ";
+        }
+    }
+    return 0;
+}
+
+
+HPC Lab Assignment No.02(a)
+—------------------------------------------------------------------------------------------------------------------
+Code:
+#include <iostream>
+#include <omp.h>
+
+void bubble(int *, int);
+void swap(int &, int &);
+
+void bubble(int *a, int n) {
+    bool swapped;
+    for (int i = 0; i < n - 1; i++) {
+        swapped = false;
+#pragma omp parallel for shared(a, n, swapped)
+        for (int j = 0; j < n - i - 1; j++) {
+            if (a[j] > a[j + 1]) {
+#pragma omp critical
+                {
+                    swap(a[j], a[j + 1]);
+                    swapped = true;
+                }
+            }
+        }
+        if (!swapped)
+            break; // Array is already sorted
+    }
+}
+
+void swap(int &a, int &b) {
+    int temp = a;
+    a = b;
+    b = temp;
+}
+
+int main() {
+    int *a, n;
+    std::cout << "Enter total number of elements: ";
+    std::cin >> n;
+    a = new int[n];
+    std::cout << "Enter elements: ";
+    for (int i = 0; i < n; i++) {
+        std::cin >> a[i];
+    }
+    bubble(a, n);
+    std::cout << "Sorted array: ";
+    for (int i = 0; i < n; i++) {
+        std::cout << a[i] << " ";
+    }
+    std::cout << std::endl;
+    delete[] a; // Deallocate memory
+    return 0;
+}
+
+HPC Lab Assignment No. 02(b)
+—------------------------------------------------------------------------------------------------------------------
+
+Code:
+
+#include<stdio.h>
+#include<omp.h>
+
+void merge(int array[], int low, int mid, int high) {
+    int temp[30];
+    int i = low, j = mid + 1, k = low;
+
+    while (i <= mid && j <= high) {
+        if (array[i] <= array[j]) {
+            temp[k++] = array[i++];
+        } else {
+            temp[k++] = array[j++];
+        }
+    }
+
+    while (i <= mid) {
+        temp[k++] = array[i++];
+    }
+
+    while (j <= high) {
+        temp[k++] = array[j++];
+    }
+
+    for (i = low; i <= high; i++) {
+        array[i] = temp[i];
+    }
+}
+
+void mergesort(int array[], int low, int high) {
+    int mid;
+
+    if (low < high) {
+        mid = (low + high) / 2;
+        #pragma omp parallel sections num_threads(2)
+        {
+            #pragma omp section
+            {
+                mergesort(array, low, mid);
+            }
+            #pragma omp section
+            {
+                mergesort(array, mid + 1, high);
+            }
+        }
+        merge(array, low, mid, high);
+    }
+}
+
+int main() {
+    int array[50];
+    int i, size;
+    printf("Enter total no. of elements:\n");
+    scanf("%d", &size);
+    printf("Enter %d elements:\n", size);
+    for (i = 0; i < size; i++) {
+        scanf("%d", &array[i]);
+    }
+    mergesort(array, 0, size - 1);
+    printf("Sorted Elements as follows:\n");
+    for (i = 0; i < size; i++) {
+        printf("%d ", array[i]);
+    }
+    printf("\n");
+    return 0;
+}
+
+HPC Lab Assignment No. 03
+—------------------------------------------------------------------------------------------------------------------
+
+Code:
+
+#include <iostream>
+#include <omp.h>
+#include <climits> // Include the <climits> header for INT_MAX and INT_MIN
+using namespace std;
+
+void min_reduction(int arr[], int n) {
+    int min_value = INT_MAX; // Use INT_MAX from <climits>
+    #pragma omp parallel for reduction(min: min_value)
+    for (int i = 0; i < n; i++) {
+        if (arr[i] < min_value) {
+            min_value = arr[i];
+        }
+    }
+    cout << "Minimum value: " << min_value << endl;
+}
+
+void max_reduction(int arr[], int n) {
+    int max_value = INT_MIN; // Use INT_MIN from <climits>
+    #pragma omp parallel for reduction(max: max_value)
+    for (int i = 0; i < n; i++) {
+        if (arr[i] > max_value) {
+            max_value = arr[i];
+        }
+    }
+    cout << "Maximum value: " << max_value << endl;
+}
+
+void sum_reduction(int arr[], int n) {
+    int sum = 0;
+    #pragma omp parallel for reduction(+: sum)
+    for (int i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+    cout << "Sum: " << sum << endl;
+}
+
+void average_reduction(int arr[], int n) {
+    int sum = 0;
+    #pragma omp parallel for reduction(+: sum)
+    for (int i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+    cout << "Average: " << (double)sum / n << endl;
+}
+
+int main() {
+    int *arr, n;
+    cout << "Enter total number of elements: " << endl;
+    cin >> n;
+    arr = new int[n];
+    cout << "Enter elements: " << endl;
+    for (int i = 0; i < n; i++) {
+        cin >> arr[i];
+    }
+    min_reduction(arr, n);
+    max_reduction(arr, n);
+    sum_reduction(arr, n);
+    average_reduction(arr, n);
+    delete[] arr; // Free the dynamically allocated memory
+    return 0;
+}
